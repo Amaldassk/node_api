@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 const app = express();
 import dotenv from 'dotenv';
 dotenv.config();
+import jwt from "jsonwebtoken";
 
 const conn = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -19,7 +20,7 @@ conn.connect((err)=>{
 
 const jsonParser = bodyParser.json();
 
-app.get('/books', (req, res)=>{ //get all books
+app.get('/books', verifyToken, (req, res)=>{ //get all books
     const qr = 'select * from books';
     conn.query(qr, (err, result, fields)=>{
         if(err) throw err;
@@ -73,6 +74,45 @@ app.delete('/book', (req,res)=>{//delete a book
         res.send({success:'data deleted'});
     });
 });
+
+app.post('/login', jsonParser, (req,res)=>{
+    const userName = req.body.username;
+    const password = req.body.password;
+
+    if(userName === undefined || password === undefined){
+        res.status(500).send({failed:'authentication failed, please enter username & password'});
+    }else{
+        const qr=`select * from users where username='${userName}' and password='${password}'`;
+        conn.query(qr, (err, result)=>{
+            if(err || result.length==0){
+                res.status(500).send({failed:"Login failed"});
+            } else {
+                let resp = {
+                    id: result[0].id,
+                    displayName: result[0].display_name
+                }
+
+                let token = jwt.sign(resp, process.env.SECRET, {expiresIn:60});
+                res.status(200).send({auth:true, token:token, user:resp});
+            }
+        });
+    }
+});
+
+function verifyToken(req,res,next) {
+    let authHeader = req.headers.authorization;
+    if(authHeader==undefined){
+        return res.status(401).send({error:"no token provided"});
+    }
+    let token = authHeader.split(" ").pop();
+    jwt.verify(token, process.env.SECRET, (err, decoded)=>{
+        if(err){
+            return res.status(500).send({error:"authentication failed"})
+        } else{
+            next();
+        }
+    });
+}
 
 app.get('/',(req,res)=>{
     res.send('<h1>Welcome</h1>')
