@@ -1,7 +1,7 @@
 {
   "name": "myapi",
   "version": "1.0.0",
-  "description": "",
+  "description": "node js api with all database operations using mysql",
   "main": "server.js",
   "scripts": {
     "start": "nodemon"
